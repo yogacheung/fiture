@@ -1,0 +1,122 @@
+server {
+	listen 443 ssl;
+	server_name  shop.fiture.net;
+	root   /srv/www/shop.fiture.net/public_html;
+	access_log  /srv/www/shop.fiture.net/logs/access.log;
+	error_log  /srv/www/shop.fiture.net/logs/error.log;
+	
+	ssl_certificate /etc/letsencrypt/live/shop.fiture.net/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/shop.fiture.net/privkey.pem;
+	
+	ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        ssl_prefer_server_ciphers on;
+        ssl_dhparam /etc/ssl/certs/dhparam.pem;
+        ssl_ciphers 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA';
+        ssl_session_timeout 1d;
+        ssl_stapling on;
+        ssl_stapling_verify on;
+        add_header Strict-Transport-Security max-age=15768000;
+	
+	client_max_body_size 500M;
+
+	location / {
+		root   /srv/www/shop.fiture.net/public_html;
+		index  index.html index.htm index.php;
+		try_files $uri $uri/ @opencart;
+		if (!-f $request_filename){
+			set $rule_0 1$rule_0;
+		}	
+		if (!-d $request_filename){
+			set $rule_0 2$rule_0;
+		}
+		if ($rule_0 = "21"){
+			rewrite ^/([^?]*) /index.php?_route_=$1 last;
+		}
+	}
+	
+	location ~* ^.+.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt)$ {
+            expires           max;
+       }
+    
+    # Make sure files with the following extensions do not get loaded by nginx because nginx would display the source code, and these files can contain PASSWORDS!
+  location ~* \.(engine|inc|info|ini|install|log|make|module|profile|test|po|sh|.*sql|theme|tpl(\.php)?|xtmpl)$|^(\..*|Entries.*|Repository|Root|Tag|Template)$|\.php_ {
+    deny all;
+  }
+       
+	
+	#error_page  404  /404.html;
+
+	# redirect server error pages to the static page /50x.html
+	#
+	#error_page   500 502 503 504  /50x.html;
+	#location = /50x.html {
+	#	root   /var/www/nginx-default;
+	#}
+
+location ~ /.well-known {
+                allow all;
+        }
+
+# Deny all attempts to access hidden files such as .htaccess, .htpasswd, .DS_Store (Mac).
+# Keep logging the requests to parse later (or to pass to firewall utilities such as fail2ban)
+location ~ /\. {
+	deny all;
+}
+
+# Deny access to any files with a .php extension in the uploads directory
+# Works in sub-directory installs and also in multisite network
+# Keep logging the requests to parse later (or to pass to firewall utilities such as fail2ban)
+location ~* /(?:uploads|files)/.*\.php$ {
+	deny all;
+}
+
+# Deny access to vqmod folder
+location ~ /vqmod {
+	deny all;
+}
+
+
+
+
+	# pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+	#
+	
+	location ~ \.php$ {
+		 try_files $uri =404;
+		include /etc/nginx/fastcgi_params;
+		fastcgi_pass   unix:/var/run/php5-fpm.sock;
+		fastcgi_index  index.php;
+		fastcgi_param  SCRIPT_FILENAME  /srv/www/shop.fiture.net/public_html$fastcgi_script_name;
+		
+	}
+	
+	
+	# deny access to .htaccess files, if Apache's document root
+	# concurs with nginx's one
+	#
+	#location ~ /\.ht {
+		#deny  all;
+	#}
+	location /php000myadmin {
+               root /usr/share/;
+               index index.php index.html index.htm;
+               location ~ ^/php000myadmin/(.+\.php)$ {
+                       try_files $uri =404;
+                       root /usr/share/;
+                       fastcgi_pass unix:/var/run/php5-fpm.sock;
+                       fastcgi_index index.php;
+                       fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                       include /etc/nginx/fastcgi_params;
+               }
+               location ~* ^/php000myadmin/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
+                       root /usr/share/;
+               }
+        }
+
+}
+
+server {
+    listen 80;
+    server_name shop.fiture.net;
+    return 301 https://$host$request_uri;
+}

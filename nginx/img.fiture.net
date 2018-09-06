@@ -1,0 +1,86 @@
+server {
+	listen   443;
+	server_name  img.fiture.net;
+	root   /srv/www/img.fiture.net/;
+	access_log  /srv/www/img.fiture.net/logs/access.log;
+	
+	ssl  on;
+	ssl_certificate  /srv/ssl/nginx.pem;
+	ssl_certificate_key  /srv/ssl/nginx.key;
+	
+	ssl_session_timeout  5m;
+	
+	ssl_protocols  SSLv2 SSLv3 TLSv1;
+	ssl_ciphers  ALL:!ADH:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;
+	ssl_prefer_server_ciphers   on;
+	
+	location / {
+		root   /srv/www/img.fiture.net/;
+		index  index.html index.htm index.php;
+		try_files $uri $uri/ /index.php;
+	}
+
+	#error_page  404  /404.html;
+
+	# redirect server error pages to the static page /50x.html
+	#
+	#error_page   500 502 503 504  /50x.html;
+	#location = /50x.html {
+	#	root   /var/www/nginx-default;
+	#}
+
+# Deny all attempts to access hidden files such as .htaccess, .htpasswd, .DS_Store (Mac).
+# Keep logging the requests to parse later (or to pass to firewall utilities such as fail2ban)
+location ~ /\. {
+	deny all;
+}
+
+# Deny access to any files with a .php extension in the uploads directory
+# Works in sub-directory installs and also in multisite network
+# Keep logging the requests to parse later (or to pass to firewall utilities such as fail2ban)
+location ~* /(?:uploads|files)/.*\.php$ {
+	deny all;
+}
+
+
+	# pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+	#
+	
+	location ~ \.php$ {
+		 try_files $uri =404;
+		include /etc/nginx/fastcgi_params;
+		fastcgi_pass   unix:/var/run/php5-fpm.sock;
+		fastcgi_index  index.php;
+		fastcgi_param  SCRIPT_FILENAME  /srv/www/img.fiture.net$fastcgi_script_name;
+		
+	}
+	
+	
+	# deny access to .htaccess files, if Apache's document root
+	# concurs with nginx's one
+	#
+	#location ~ /\.ht {
+		#deny  all;
+	#}
+	location /php000myadmin {
+               root /usr/share/;
+               index index.php index.html index.htm;
+               location ~ ^/php000myadmin/(.+\.php)$ {
+                       try_files $uri =404;
+                       root /usr/share/;
+                       fastcgi_pass unix:/var/run/php5-fpm.sock;
+                       fastcgi_index index.php;
+                       fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                       include /etc/nginx/fastcgi_params;
+               }
+               location ~* ^/php000myadmin/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
+                       root /usr/share/;
+               }
+        }
+
+}
+
+server {
+    server_name  img.fiture.net;
+    rewrite ^(.*) https://img.fiture.net$1 permanent;
+}
